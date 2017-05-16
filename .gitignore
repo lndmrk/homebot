@@ -1,0 +1,7 @@
+__pycache__/
+.scrapy/
+*.csv
+*.json
+*.py[cod]
+*.sql
+*.xml
