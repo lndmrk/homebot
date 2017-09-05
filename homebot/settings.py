@@ -24,6 +24,8 @@ DOWNLOADER_MIDDLEWARES = {
 
 AUTOTHROTTLE_ENABLED = True
 
+COOKIES_ENABLED = False
+
 # Enable caching during development
 HTTPCACHE_ENABLED = False
 
