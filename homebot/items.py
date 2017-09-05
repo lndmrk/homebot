@@ -15,7 +15,7 @@
 
 from scrapy import Item, Field
 
-class AdvertisementItem(Item):
+class HemnetSoldItem(Item):
     url = Field(serializer=str)
 
     address = Field(serializer=str)

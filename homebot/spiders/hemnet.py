@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ..items import AdvertisementItem
+from ..items import HemnetSoldItem
 
 from scrapy import Spider, Request
 
@@ -22,15 +22,13 @@ from datetime import datetime
 import re
 import json
 
-DEFAULT_URL = "https://www.hemnet.se/salda/bostader"
-
 class HemnetSoldSpider(Spider):
     name = "hemnet-sold"
     allowed_domains = ["www.hemnet.se"]
 
     def start_requests(self):
-        url = getattr(self, "url", DEFAULT_URL)
-        yield Request(url, self.parse)
+        url = getattr(self, "url", "https://www.hemnet.se/salda/bostader")
+        yield Request(url)
 
     def parse(self, response):
         ads = response.xpath("//ul[@id='search-results']/li/div/a/@href")
@@ -43,7 +41,7 @@ class HemnetSoldSpider(Spider):
             yield Request(response.urljoin(next_page))
 
     def parse_advertisement(self, response):
-        item = AdvertisementItem()
+        item = HemnetSoldItem()
 
         item["url"] = response.url
 
@@ -59,13 +57,8 @@ class HemnetSoldSpider(Spider):
         item["rent"]  = self._get_attrib_from_html(response, "Avgift/månad")
         item["fee"] = self._get_attrib_from_html(response, "Driftskostnad")
 
-        year = self._get_attrib_from_html(response, "Byggår")
-        try:
-            # If multiple years, only extract the initial
-            year = re.search("^[\d]{4}", year).group()
-        except Exception:
-            year = 0
-        item["construction_year"] = year
+        item["construction_year"] = self._get_attrib_from_html(response,
+                                                               "Byggår")
 
         item["housing_association"] = self._get_attrib_from_html(response,
                                                                  "Förening")
@@ -106,7 +99,7 @@ class HemnetSoldSpider(Spider):
 
         item["last_updated"] = datetime.now()
 
-        self._strip_attribs(item)
+        _normalize_item(item)
 
         yield item
 
@@ -126,51 +119,64 @@ class HemnetSoldSpider(Spider):
         item["lot_area"] = self._get_attrib_from_html(response, "Tomtarea")
         item["gross_area"] = self._get_attrib_from_html(response, "Biarea")
 
-        # This attribute was parsed from HTML earlier, but since we had to parse
-        # everything else from HTML as well we need to normalize it to be
-        # consistent with the JavaScript properties.
-        item["object_type"] = self._normalize_object_type(item["object_type"])
-
     def _get_attrib_from_html(self, response, attrib):
         s = "//dl[@class='sold-property__attributes']"
         attribs = response.xpath(s)
         s = "normalize-space(//dt[text()='{}']/following-sibling::dd/text())"
         return attribs.xpath(s.format(attrib)).extract_first()
 
-    def _normalize_object_type(self, s):
-        if "bostadsrätt" in s.lower():
-            return "bostadsratt"
-        elif "fritidshus" in s.lower():
-            return "fritidshus"
-        elif "villa" in s.lower():
-            return "villa"
-        elif "rad" in s.lower():
-            return "radhus"
-        else:
-            return s
-
-    def _strip_attribs(self, item):
-        keys = ("latitude", "longitude", "rooms", "living_area", "lot_area",
-                "gross_area")
+def _normalize_item(item):
+    def do_normalize(keys, function):
         for key in keys:
-            item[key] = self._strip_to_float(item.get(key, 0.0))
+            if key in item:
+                item[key] = function(item[key])
 
-        keys = ("construction_year", "rent", "fee", "list_price", "sold_price")
-        for key in keys:
-            item[key] = self._strip_to_int(item.get(key, 0))
+    key = "object_type"
+    if key in item:
+        item[key] = _normalize_object_type(item[key])
 
-    def _strip_to_float(self, n):
-        # There's probably a more Pythonic way of doing this...
-        if type(n) is str:
-            try:
-                return float(re.sub("[^0-9,\.]", "", n).replace(",", "."))
-            except Exception:
-                return 0.0
+    key = "construction_year"
+    if key in item:
+        item[key] = _normalize_year(item[key])
 
-        if n is None:
+    keys = ("latitude", "longitude", "rooms", "living_area", "lot_area",
+            "gross_area")
+    do_normalize(keys, _normalize_float)
+
+    keys = ("construction_year", "rent", "fee", "list_price", "sold_price")
+    do_normalize(keys, _normalize_int)
+
+def _normalize_float(n):
+    # There's probably a more Pythonic way of doing this...
+    if type(n) is str:
+        try:
+            return float(re.sub("[^0-9,\.]", "", n).replace(",", "."))
+        except Exception:
             return 0.0
 
-        return float(n)
+    if n is None:
+        return 0.0
 
-    def _strip_to_int(self, n):
-        return int(self._strip_to_float(n))
+    return float(n)
+
+def _normalize_int(n):
+    return int(_normalize_float(n))
+
+def _normalize_object_type(string):
+    if "bostadsrätt" in string.lower():
+        return "bostadsratt"
+    elif "fritidshus" in string.lower():
+        return "fritidshus"
+    elif "villa" in string.lower():
+        return "villa"
+    elif "rad" in string.lower():
+        return "radhus"
+    else:
+        return string
+
+def _normalize_year(year):
+    try:
+        # If multiple years, only extract the initial
+        return re.search("^[\d]{4}", year).group()
+    except Exception:
+        return 0
