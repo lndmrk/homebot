@@ -24,13 +24,22 @@ for a list of available spiders.
 
 Also see [settings.py] for some options that could be useful!
 
-### Example
-Fetch all items from [Hemnet] with at least 10 rooms to a JSON file.
+### Examples
+Fetch all residences for sale from [Hemnet] that cost more than 20,000,000 SEK.
+```
+$ scrapy crawl \
+         -a url="https://www.hemnet.se/bostader?price_min=20000000" \
+         --output-format=csv \
+         --output=hemnet.csv \
+         hemnet
+```
+
+Fetch all sold residences from Hemnet with at least 10 rooms to a JSON file.
 ```
 $ scrapy crawl \
          -a url="https://www.hemnet.se/salda/bostader?rooms_min=10.0" \
          --output-format=json \
-         --output=homebot.json \
+         --output=hemnet-sold.json \
          hemnet-sold
 ```
 
@@ -43,9 +52,9 @@ have any relational data, it's still useful for doing aggregation and filtering.
 
 You can use [sqlitebiter] to convert e.g. a JSON file to a [SQLite] format. 
 ```
-$ sqlitebiter file homebot.json --output-path=homebot.sql
-$ sqlite3 homebot.sql
-sqlite> SELECT AVG(soldprice) FROM homebot_json1;
+$ sqlitebiter file hemnet-sold.json --output-path=hemnet-sold.sql
+$ sqlite3 hemnet-sold.sql
+sqlite> SELECT AVG(soldprice) FROM hemnet_sold_json1;
 6047405.62248996
 ```
 

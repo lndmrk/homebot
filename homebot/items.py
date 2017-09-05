@@ -15,7 +15,7 @@
 
 from scrapy import Item, Field
 
-class HemnetSoldItem(Item):
+class HemnetItem(Item):
     url = Field(serializer=str)
 
     address = Field(serializer=str)
@@ -33,15 +33,16 @@ class HemnetSoldItem(Item):
     gross_area = Field(serializer=float)
 
     rent = Field(serializer=int)
-    yearly_fee = Field(serializer=int)
+    annual_fee = Field(serializer=int)
 
     list_price = Field(serializer=int)
-    sold_price = Field(serializer=int)
-
-    sold_date = Field(serializer=str)
-
-    housing_association = Field(serializer=str)
 
     broker_firm = Field(serializer=str)
 
     last_updated = Field(serializer=str)
+
+class HemnetSoldItem(HemnetItem):
+    sold_price = Field(serializer=int)
+    sold_date = Field(serializer=str)
+
+    housing_association = Field(serializer=str)

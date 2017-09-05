@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ..items import HemnetSoldItem
+from ..items import HemnetItem, HemnetSoldItem
 
 from scrapy import Spider, Request
 
@@ -21,6 +21,69 @@ from datetime import datetime
 
 import re
 import json
+
+class HemnetSpider(Spider):
+    name = "hemnet"
+    allowed_domains = ["www.hemnet.se"]
+
+    def start_requests(self):
+        url = getattr(self, "url", "https://www.hemnet.se/bostader")
+        yield Request(url)
+
+    def parse(self, response):
+        ads = response.xpath("//ul[@id='search-results']/li/div/a/@href")
+        for url in ads.extract():
+            yield Request(response.urljoin(url), self.parse_advertisement)
+
+        next_page = response.xpath("//a[contains(@class, 'next_page')]/@href") \
+                            .extract_first()
+        if next_page is not None:
+            yield Request(response.urljoin(next_page))
+
+    def parse_advertisement(self, response):
+        item = HemnetItem()
+
+        item["url"] = response.url
+
+        s = "//script[@type='text/javascript']"
+        for script in response.xpath(s):
+            script = script.xpath("text()").extract_first()
+            try:
+                attribs = re.search("properties = \[(.*)]\;", script).group(1)
+                break
+            except AttributeError:
+                pass
+        attribs = json.loads(attribs)
+
+        item["address"] = attribs.get("address", "")
+        item["region"] = attribs.get("location_name", "")
+
+        coordinate = attribs.get("coordinate", (0.0, 0.0))
+        item["latitude"] = coordinate[0]
+        item["longitude"] = coordinate[1]
+
+        item["object_type"] = attribs.get("type", "")
+        item["construction_year"] = _get_attrib_from_html(response, "Byggår")
+
+        item["rooms"] = attribs.get("rooms", 0.0)
+
+        item["living_area"] = attribs.get("living_space", 0.0)
+        item["lot_area"] = attribs.get("land_area", 0.0)
+        item["gross_area"] = _get_attrib_from_html(response, "Biarea")
+
+        item["rent"] = attribs.get("fee", 0.0)
+        item["annual_fee"] = _get_attrib_from_html(response, "Driftkostnad")
+
+        item["list_price"] = attribs.get("price", 0)
+
+        s = "//div[@id='item-info']/div/a/@title"
+        item["broker_firm"] = response.xpath(s).extract_first()
+
+        item["last_updated"] = datetime.now()
+
+        _normalize_item(item)
+
+        yield item
 
 class HemnetSoldSpider(Spider):
     name = "hemnet-sold"
@@ -54,15 +117,15 @@ class HemnetSoldSpider(Spider):
         s = "//p[@class='sold-property__metadata']/time/@datetime"
         item["sold_date"] = response.xpath(s).extract_first()
 
-        item["rent"]  = self._get_attrib_from_html(response, "Avgift/månad")
-        item["annual_fee"] = self._get_attrib_from_html(response,
-                                                        "Driftskostnad")
+        item["rent"]  = _get_attrib_from_html(response, "Avgift/månad", True)
+        item["annual_fee"] = _get_attrib_from_html(response, "Driftskostnad",
+                                                    True)
 
-        item["construction_year"] = self._get_attrib_from_html(response,
-                                                               "Byggår")
+        item["construction_year"] = _get_attrib_from_html(response, "Byggår",
+                                                          True)
 
-        item["housing_association"] = self._get_attrib_from_html(response,
-                                                                 "Förening")
+        item["housing_association"] = _get_attrib_from_html(response,
+                                                            "Förening", True)
 
         s = "//div[@class='broker__details']/p[2]//text()[1]"
         try:
@@ -114,17 +177,21 @@ class HemnetSoldSpider(Spider):
         s = "//dl[@class='sold-property__price-stats']/dd[2]/text()"
         item["list_price"] = response.xpath(s).extract_first()
 
-        item["rooms"] = self._get_attrib_from_html(response, "Antal rum")
+        item["rooms"] = _get_attrib_from_html(response, "Antal rum", True)
 
-        item["living_area"] = self._get_attrib_from_html(response, "Boarea")
-        item["lot_area"] = self._get_attrib_from_html(response, "Tomtarea")
-        item["gross_area"] = self._get_attrib_from_html(response, "Biarea")
+        item["living_area"] = _get_attrib_from_html(response, "Boarea", True)
+        item["lot_area"] = _get_attrib_from_html(response, "Tomtarea", True)
+        item["gross_area"] = _get_attrib_from_html(response, "Biarea", True)
 
-    def _get_attrib_from_html(self, response, attrib):
-        s = "//dl[@class='sold-property__attributes']"
-        attribs = response.xpath(s)
-        s = "normalize-space(//dt[text()='{}']/following-sibling::dd/text())"
-        return attribs.xpath(s.format(attrib)).extract_first()
+def _get_attrib_from_html(response, attrib, sold=False):
+    if sold:
+        dl_class = "sold-property__attributes"
+    else:
+        dl_class = "property__attributes"
+    s = "//dl[@class='{}']".format(dl_class)
+    attribs = response.xpath(s)
+    s = "normalize-space(//dt[text()='{}']/following-sibling::dd/text())"
+    return attribs.xpath(s.format(attrib)).extract_first()
 
 def _normalize_item(item):
     def do_normalize(keys, function):
