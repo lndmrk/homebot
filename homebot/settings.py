@@ -29,7 +29,7 @@ COOKIES_ENABLED = False
 # Enable caching during development
 HTTPCACHE_ENABLED = False
 
-# Enable incremental fetches (requires extra dependencies)
+# Enable incremental fetches
 #SPIDER_MIDDLEWARES = {
 #    "scrapy_deltafetch.DeltaFetch": 100,
 #}

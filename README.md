@@ -6,6 +6,10 @@ The following should get you started on most systems.
 ```
 $ pip3 install -r requirements.txt
 ```
+Optionally also install extra requirements.
+```
+$ pip3 install -r requirements-extra.txt
+```
 
 ## Obtaining data
 Data is obtained using *spiders* with [Scrapy]. Run
