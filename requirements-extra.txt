@@ -1,1 +1,2 @@
+googlemaps==2.5.1
 scrapy-deltafetch==1.2.1

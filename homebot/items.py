@@ -23,6 +23,8 @@ class HemnetItem(Item):
     latitude = Field(serializer=float)
     longitude = Field(serializer=float)
 
+    travel_time = Field(serializer=int)
+
     object_type = Field(serializer=str)
     construction_year = Field(serializer=int)
 
