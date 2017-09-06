@@ -33,7 +33,7 @@ class HemnetSoldItem(Item):
     gross_area = Field(serializer=float)
 
     rent = Field(serializer=int)
-    fee = Field(serializer=int)
+    yearly_fee = Field(serializer=int)
 
     list_price = Field(serializer=int)
     sold_price = Field(serializer=int)

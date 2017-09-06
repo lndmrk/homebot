@@ -55,7 +55,8 @@ class HemnetSoldSpider(Spider):
         item["sold_date"] = response.xpath(s).extract_first()
 
         item["rent"]  = self._get_attrib_from_html(response, "Avgift/månad")
-        item["fee"] = self._get_attrib_from_html(response, "Driftskostnad")
+        item["annual_fee"] = self._get_attrib_from_html(response,
+                                                        "Driftskostnad")
 
         item["construction_year"] = self._get_attrib_from_html(response,
                                                                "Byggår")
@@ -143,7 +144,8 @@ def _normalize_item(item):
             "gross_area")
     do_normalize(keys, _normalize_float)
 
-    keys = ("construction_year", "rent", "fee", "list_price", "sold_price")
+    keys = ("construction_year", "rent", "annual_fee", "list_price",
+            "sold_price")
     do_normalize(keys, _normalize_int)
 
 def _normalize_float(n):
