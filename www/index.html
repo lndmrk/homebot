@@ -1,0 +1,131 @@
+<!--
+Copyright (C) 2017 Emil Lundmark
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<!--
+README
+
+This requires a crawled JSON file. Name the file data.json and put it in this
+directory. Then start a local web server with e.g.
+
+$ python3 -m http.server
+
+You can also specify the filename with query parameter datafile if you want to
+use another filename, e.g.
+
+http://localhost:8000/?datafile=interesting.json
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>HomeBot Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+          content="width=device-width, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+          integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+          crossorigin=""  />
+    <style>
+      body {
+        padding: 0;
+        margin: 0;
+      }
+      html, body, #map {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+            integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+            crossorigin="">
+    </script>
+    <script>
+      function getCenter(items) {
+        let lat = 0.0;
+        let lng = 0.0;
+        let len = items.length;
+
+        items.forEach(item => {
+            if ((item.latitude > 0.0) && (item.longitude > 0.0)) {
+              lat += item.latitude;
+              lng += item.longitude;
+            } else {
+              --len;
+            }
+        });
+
+        return [lat / len, lng / len];
+      }
+
+      function drawMap(items) {
+        let osmUrl = "https://www.openstreetmap.org/copyright"
+        let osmLayer = L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png", {
+          attribution: `Map data &copy; ` +
+            `<a href="${osmUrl}">OpenStreetMap</a> contributors`
+        });
+
+        let map = L.map("map", {
+          center: getCenter(items),
+          zoom: 11,
+          layers: osmLayer,
+        });
+
+        items.forEach(item => {
+          L.marker([item.latitude, item.longitude])
+           .on("click", event => {
+             L.popup()
+              .setLatLng(event.latlng)
+              .setContent(
+                `<a href="${item.url}"` +
+                   `target="_blank"` +
+                   `rel="noopener noreferrer">` +
+                 `${item.address}</a><br />` +
+                `${item.list_price.toLocaleString()} kr<br />` +
+                `${item.rent.toLocaleString()} kr/month<br />` +
+                `${item.living_area} m<sup>2</sup><br />` +
+                `${item.rooms} rooms<br />` +
+                `${Math.round(item.travel_time / 60)} min`
+              )
+              .openOn(map);
+           })
+           .addTo(map);
+         });
+      }
+
+      window.onload = function() {
+        let searchParams = new URLSearchParams(window.location.search);
+        let fileName = searchParams.get("datafile");
+        if (!fileName) {
+          fileName = "data.json"
+        }
+
+        let request = new XMLHttpRequest();
+        request.open("GET", fileName, true);
+        request.onload = function() {
+          if (request.status >= 200 && request.status < 400) {
+            let data = JSON.parse(request.responseText);
+            drawMap(data);
+          }
+        };
+        request.send();
+      }
+    </script>
+  </body>
+</html>
